@@ -99,6 +99,14 @@ void run(void *literals[], byte instructions[]) {
         
         break;
       }
+      case JUMP: {
+        ip++; // advance to operand (offset)
+        byte offset = *ip;
+        
+        ip += offset;
+        
+        break;
+      }
       case RETURN:
         return;
         
