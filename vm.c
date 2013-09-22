@@ -9,7 +9,7 @@
 #define STACK_PUSH(I)  do {                             \
                           assert(sp-stack < STACK_MAX); \
                           *(++sp) = (I);                \
-                       } while(0)
+                          retain(*sp); } while(0)
 #define STACK_POP()    (*sp--)
 
 
@@ -23,6 +23,7 @@ void run(void *literals[], byte instructions[]) {
   
   // Setup the runtime
   Object *self = Object_new();
+  retain(self);
   
   // Start processing instructions
   while (1) {
@@ -42,6 +43,10 @@ void run(void *literals[], byte instructions[]) {
         
         Object *result = call(receiver, message, argv, argc);
         STACK_PUSH(result);
+
+        // Release all objects
+        release(receiver);
+        for (i = 0; i < argc; ++i) release(argv[i]);
         
         break;
       }
@@ -87,6 +92,9 @@ void run(void *literals[], byte instructions[]) {
         Object *b = STACK_POP();
         
         STACK_PUSH(Number_new(Number_value(a) + Number_value(b)));
+
+        release(a);
+        release(b);
         
         break;
       }
@@ -96,6 +104,8 @@ void run(void *literals[], byte instructions[]) {
         Object *test = STACK_POP();
         
         if (!Object_is_true(test)) ip += offset;
+
+        release(test);
         
         break;
       }
@@ -108,11 +118,17 @@ void run(void *literals[], byte instructions[]) {
         break;
       }
       case RETURN:
-        return;
+        goto cleanup;
         
     }
     ip++;
   }
+
+cleanup:
+  release(self);
+  int i;
+  for(i = 0; i < 10; i++) if (locals[i]) release(locals[i]);
+  while (sp > stack) release(STACK_POP());
 }
 
 int main (int argc, char const *argv[]) {
